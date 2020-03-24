@@ -40,6 +40,9 @@ try:
     if allowed > 1.0:
         allowed = allowed/100.0
     finlabels,finheader,findata = read_starfile_new(sys.argv[4])
+    extra = False
+    if '--extra' in sys.argv:
+            extra = True
 except:
     sys.exit(errmsg)
     
@@ -102,63 +105,64 @@ plt.hist(moves,range(len(datafiles)))
 plt.savefig('total_switches.png')
 plt.close()
 
+if extra == True:
 
-#### relationships bewteen classes
-def get_class_relations(classno,partsdic):
-    thisclasscounts = []
-    for i in partsdic:
-        if partsdic[i][0][-1] == classno:
-            for sw in partsdic[i][0][:-1]:
-                thisclasscounts.append(sw)
-    return(thisclasscounts)
-
-def get_defined_switches(classno,partsdic):
-    defined_switches = {}           ### {(from,to):count}
+    #### relationships bewteen classes
+    def get_class_relations(classno,partsdic):
+        thisclasscounts = []
+        for i in partsdic:
+            if partsdic[i][0][-1] == classno:
+                for sw in partsdic[i][0][:-1]:
+                    thisclasscounts.append(sw)
+        return(thisclasscounts)
+    
+    def get_defined_switches(classno,partsdic):
+        defined_switches = {}           ### {(from,to):count}
+        possible_switches = itertools.permutations(classes,2)
+        for i in possible_switches:
+            defined_switches[i] = 0
+        for i in partsdic:
+            if partsdic[i][0][-1] == classno:
+                n=1
+                for sw in partsdic[i][0]:
+                    try:
+                        switch = (sw,partsdic[i][0][n])
+                        n+=1
+                        defined_switches[switch] +=1
+                    except:
+                        pass
+        return(defined_switches)
+    
+    ### total time in any given class
+    total_time = {}        #{class:[locations durning previous iters]}
+    for i in classes:
+        print('class number {0}'.format(i))
+        total_time[i] = get_class_relations(i,partsdic)
+        for j in classes:
+            timeinclass = total_time[i].count(j)/float(len(total_time[i]))
+            print(j,round(timeinclass,3))
+    
+    #### switches
+    defined_switches = {}       ## {classno:{switch:count}}
+    for i in classes:
+        defined_switches[i] = get_defined_switches(i,partsdic)
+    dswitchlist = list(defined_switches)
+    dswitchlist.sort()
+    for i in dswitchlist:
+        print(i,defined_switches[i])
+        
+    ### analysis of defined switches not in or out of final class
+    ### not an escepcially intereting analysis right now
+    non_fin_switches = {}           ### {(from,to):count} not counting when a particle moved in or of its final class
     possible_switches = itertools.permutations(classes,2)
     for i in possible_switches:
-        defined_switches[i] = 0
-    for i in partsdic:
-        if partsdic[i][0][-1] == classno:
-            n=1
-            for sw in partsdic[i][0]:
-                try:
-                    switch = (sw,partsdic[i][0][n])
-                    n+=1
-                    defined_switches[switch] +=1
-                except:
-                    pass
-    return(defined_switches)
-
-### total time in any given class
-total_time = {}        #{class:[locations durning previous iters]}
-for i in classes:
-    print('class number {0}'.format(i))
-    total_time[i] = get_class_relations(i,partsdic)
-    for j in classes:
-        timeinclass = total_time[i].count(j)/float(len(total_time[i]))
-        print(j,round(timeinclass,3))
-
-#### switches
-defined_switches = {}       ## {classno:{switch:count}}
-for i in classes:
-    defined_switches[i] = get_defined_switches(i,partsdic)
-dswitchlist = list(defined_switches)
-dswitchlist.sort()
-for i in dswitchlist:
-    print(i,defined_switches[i])
-    
-### analysis of defined switches not in or out of final class
-### not an escepcially intereting analysis right now
-non_fin_switches = {}           ### {(from,to):count} not counting when a particle moved in or of its final class
-possible_switches = itertools.permutations(classes,2)
-for i in possible_switches:
-    non_fin_switches[i] = 0
-for i in defined_switches:
-    for j in defined_switches[i]:
-        if i not in j:
-            non_fin_switches[j] += defined_switches[i][j]
-for i in non_fin_switches:
-    print(i,non_fin_switches[i])
+        non_fin_switches[i] = 0
+    for i in defined_switches:
+        for j in defined_switches[i]:
+            if i not in j:
+                non_fin_switches[j] += defined_switches[i][j]
+    for i in non_fin_switches:
+        print(i,non_fin_switches[i])
 
 #### plot the number of switches vs maxvalprobdist and loglikelicontrib
 nswitches_dic = {}      ## {number of switches:[all LLCs],[all MVPDS]}
@@ -174,8 +178,8 @@ for i in range(len(datafiles)-startiter):
     stdllc = np.std(nswitches_dic[i][0])
     meanmvpd = np.mean(nswitches_dic[i][1])
     stdmvpd = np.std(nswitches_dic[i][1])
-    print('\n')
-    print('number of switches',i,'{0}% of interations'.format(int((i/float(len(datafiles)-startiter))*100.0)))
+    print('')
+    print('number of switches',i,'{0}% of iterations'.format(int((i/float(len(datafiles)-startiter))*100.0)))
     print('number of parts',len(nswitches_dic[i][0]))
     print('mean,std LLC',meanllc,stdllc)
     print('mean,std MVPD',meanmvpd,stdmvpd)
